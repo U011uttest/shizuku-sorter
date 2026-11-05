@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>いろみず そろえ</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;user-select:none;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);
+ background-color:#7a4a26;background-image:
+ radial-gradient(ellipse at 50% 40%,rgba(255,200,140,.25),rgba(0,0,0,.45) 85%),
+ repeating-linear-gradient(92deg,rgba(0,0,0,.08) 0 3px,transparent 3px 11px,rgba(255,255,255,.04) 11px 13px,transparent 13px 27px),
+ repeating-linear-gradient(88deg,rgba(60,25,5,.18) 0 1px,transparent 1px 60px),
+ linear-gradient(90deg,#8a5530,#6e3f1e 30%,#94603a 55%,#6b3c1c 80%,#87522d);
+ background-attachment:fixed}
+h1{font-size:1.4rem;margin:16px 0 4px}
+#info{margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.lvbtn{padding:4px 10px;font-size:.85rem}
+#lvSel{background:rgba(40,20,8,.55);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:6px;padding:3px 4px;font-size:.95rem}
+#bar{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:8px}
+button{background:rgba(40,20,8,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:.95rem;cursor:pointer}
+button:active{transform:scale(.95)}
+button:disabled{opacity:.4}
+#board{display:flex;flex-wrap:wrap;justify-content:center;gap:30px 22px;max-width:640px;padding:30px 10px}
+/* 試験管：液体4段(160px)＋上部の余白40px */
+.tube{position:relative;width:48px;height:200px;cursor:pointer;transition:transform .15s}
+/* ガラス本体：縁の楕円の中心(6px)から下に描画し、楕円の外側に側面線が出ないようにする */
+.glass{position:absolute;top:6px;left:0;right:0;bottom:0;border:2px solid rgba(255,255,255,.55);border-top:none;border-radius:0 0 24px 24px;display:flex;flex-direction:column-reverse;overflow:hidden;padding:0 1px 1px;
+ background:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.04) 30%,rgba(255,255,255,.02) 70%,rgba(255,255,255,.15));
+ box-shadow:inset 0 0 6px rgba(255,255,255,.25),0 6px 10px rgba(0,0,0,.35);
+ /* 口の楕円の内側（下半分）をくり抜き、ガラス上端を楕円の弧に沿わせる */
+ -webkit-mask:radial-gradient(ellipse 23px 5px at 50% 0,transparent 98%,#000 100%);
+ mask:radial-gradient(ellipse 23px 5px at 50% 0,transparent 98%,#000 100%)}
+.tube::before{content:"";position:absolute;top:0;left:0;right:0;height:12px;border:2px solid rgba(255,255,255,.75);border-radius:50%;z-index:4;pointer-events:none}
+.tube::after{content:"";position:absolute;top:16px;bottom:16px;left:7px;width:5px;border-radius:3px;background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.12));z-index:4;pointer-events:none}
+.tube.sel{transform:translateY(-18px)}
+.tube.sel::before{border-color:#ffe27a}
+.tube.done::before{border-color:transparent}
+.tube.pouring{z-index:15}
+.seg{position:relative;height:40px;flex:none;
+ background:linear-gradient(90deg,color-mix(in srgb,var(--c) 70%,#000),var(--c) 25%,color-mix(in srgb,var(--c) 75%,#fff) 45%,var(--c) 65%,color-mix(in srgb,var(--c) 65%,#000))}
+.seg:first-child{border-radius:0 0 22px 22px}
+/* 色の境目を丸く（上の色が下の色へ弧状に張り出す） */
+.seg:not(:first-child)::before{content:"";position:absolute;left:0;right:0;bottom:-6px;height:12px;border-radius:50%;background:inherit;z-index:1}
+/* 一番上の液面 */
+.seg.top::after{content:"";position:absolute;left:0;right:0;top:-6px;height:12px;border-radius:50%;background:color-mix(in srgb,var(--c) 65%,#fff);z-index:2}
+.cap{position:absolute;left:-4px;right:-4px;top:-14px;height:30px;z-index:6;pointer-events:none;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45))}
+/* 側面（円柱）：下端は楕円の弧 */
+.cap::after{content:"";position:absolute;left:0;right:0;top:7px;bottom:0;border-radius:0 0 50% 50% / 0 0 7px 7px;
+ background:linear-gradient(90deg,#5e3818,#a86d35 22%,#e3ab72 42%,#c1803f 62%,#7a4a22 85%,#4f2e13)}
+/* 天面（楕円） */
+.cap::before{content:"";position:absolute;left:0;right:0;top:0;height:14px;border-radius:50%;z-index:1;
+ background:radial-gradient(ellipse at 40% 35%,#f0c08c,#c9894a 60%,#9c6230);box-shadow:inset 0 -1px 1px rgba(0,0,0,.3),inset 0 1px 1px rgba(255,255,255,.4)}
+.cap.drop{animation:capDrop .45s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes capDrop{0%{transform:translateY(-60px);opacity:0}60%{opacity:1}100%{transform:translateY(0)}}
+.tube.done{cursor:default}
+#stream{position:fixed;width:6px;border-radius:3px;z-index:20;height:0;transition:height .15s linear;pointer-events:none}
+#msg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;font-size:1.6rem;z-index:30}
+#msg.show{display:flex}
+</style>
+</head>
+<body>
+<h1>💧 いろみず そろえ</h1>
+<div id="info">
+  <button id="lvDown" class="lvbtn">◀</button>
+  レベル <select id="lvSel"></select>
+  <button id="lvUp" class="lvbtn">▶</button>
+  　手数 <span id="mv">0</span>
+</div>
+<div id="bar">
+  <button id="undo">↩ 戻す</button>
+  <button id="restart">⟲ やり直し</button>
+  <button id="addTube">＋ 空き瓶</button>
+  <button id="newGame">🎲 新規</button>
+</div>
+<div id="board"></div>
+<div id="msg"><div>🎉 クリア！</div><button id="next">次のレベルへ</button></div>
+
+<script>
+const MAX_LV=30;
+const CAP=4, SEG=40, TUBE_H=200;
+const COLORS=["#f2353b","#2f6df6","#3fd13f","#ffd633","#a03ef0","#ff8c1a","#00c2d1","#ff5fa8","#8b5a3c","#a8a8a8","#b7d61e","#1a2fa0"];
+let level=Math.min(+localStorage.getItem("ws_level")||1,30);
+let busy=false;
+let capped=new Set();
+let tubes=[],initial=[],history=[],sel=-1,moves=0,extraUsed=false;
+
+function numColors(){return Math.min(3+Math.floor((level-1)/2),COLORS.length);}
+
+function generate(){
+  const n=numColors();
+  let pool=[];
+  for(let c=0;c<n;c++)for(let i=0;i<CAP;i++)pool.push(c);
+  let t;
+  do{
+    for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+    t=[];for(let i=0;i<n;i++)t.push(pool.slice(i*CAP,(i+1)*CAP));
+  }while(t.some(x=>x.every(v=>v===x[0])));
+  t.push([],[]);
+  return t;
+}
+
+// 解けるか判定（深さ優先探索）
+function isSolvable(start,limit=200000){
+  const seen=new Set();let nodes=0;
+  const key=ts=>ts.map(t=>t.join(",")).sort().join("|");
+  const done=ts=>ts.every(t=>!t.length||(t.length===CAP&&t.every(v=>v===t[0])));
+  const run=t=>{if(!t.length)return 0;const c=t[t.length-1];let k=0;for(let i=t.length-1;i>=0&&t[i]===c;i--)k++;return k;};
+  function dfs(ts){
+    if(done(ts))return true;
+    if(++nodes>limit)return null;
+    const k=key(ts);if(seen.has(k))return false;seen.add(k);
+    for(let a=0;a<ts.length;a++){
+      const A=ts[a];if(!A.length)continue;
+      const r=run(A);if(r===CAP)continue;
+      let emptyTried=false;
+      for(let b=0;b<ts.length;b++){
+        if(a===b)continue;const B=ts[b];
+        if(B.length>=CAP)continue;
+        if(B.length){if(B[B.length-1]!==A[A.length-1])continue;}
+        else{if(r===A.length||emptyTried)continue;emptyTried=true;}
+        const n=ts.map(x=>x.slice());
+        const amt=Math.min(r,CAP-B.length);
+        for(let i=0;i<amt;i++)n[b].push(n[a].pop());
+        const res=dfs(n);
+        if(res)return true;if(res===null)return null;
+      }
+    }
+    return false;
+  }
+  return dfs(start)===true;
+}
+function generateSolvable(){
+  for(let i=0;i<50;i++){const t=generate();if(isSolvable(t))return t;}
+  return generate();
+}
+
+const clone=a=>a.map(x=>x.slice());
+function start(fresh){
+  if(fresh)initial=generateSolvable();
+  tubes=clone(initial);history=[];sel=-1;moves=0;extraUsed=false;render();
+}
+
+function topRun(t){
+  if(!t.length)return 0;
+  const c=t[t.length-1];let k=0;
+  for(let i=t.length-1;i>=0&&t[i]===c;i--)k++;
+  return k;
+}
+function canPour(a,b){
+  const A=tubes[a],B=tubes[b];
+  if(a===b||!A.length||B.length>=CAP)return false;
+  return !B.length||B[B.length-1]===A[A.length-1];
+}
+function pour(a,b){
+  history.push(clone(tubes));
+  const A=tubes[a],B=tubes[b];
+  const amt=Math.min(topRun(A),CAP-B.length);
+  for(let i=0;i<amt;i++)B.push(A.pop());
+  moves++;
+}
+const solvedTube=t=>!t.length||(t.length===CAP&&t.every(v=>v===t[0]));
+const solved=()=>tubes.every(solvedTube);
+
+function click(i){
+  if(busy)return;
+  const full=t=>t.length===CAP&&solvedTube(t);
+  if(sel<0){if(tubes[i].length&&!full(tubes[i]))sel=i;}
+  else if(sel===i)sel=-1;
+  else if(canPour(sel,i)){const a=sel;sel=-1;animatePour(a,i);return;}
+  else sel=(tubes[i].length&&!full(tubes[i]))?i:-1;
+  render();
+}
+
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+function makeSeg(color,top){
+  const s=document.createElement("div");
+  s.className="seg"+(top?" top":"");
+  s.style.setProperty("--c",color);
+  return s;
+}
+async function animatePour(a,b){
+  busy=true;
+  render();
+  const els=document.querySelectorAll(".tube");
+  const ea=els[a],eb=els[b];
+  const ga=ea.querySelector(".glass"),gb=eb.querySelector(".glass");
+  const ra=ea.getBoundingClientRect(),rb=eb.getBoundingClientRect();
+  const dir=rb.left>=ra.left?1:-1;
+  const dx=(rb.left-ra.left)-dir*58;
+  const dy=(rb.top-ra.top)-110;
+  ea.classList.add("pouring");
+  ea.style.transition="transform .3s ease";
+  ea.style.transform=`translate(${dx}px,${dy}px) rotate(${dir*75}deg)`;
+  await wait(320);
+
+  const color=COLORS[tubes[a][tubes[a].length-1]];
+  const st=document.createElement("div");st.id="stream";
+  st.style.background=`linear-gradient(90deg,color-mix(in srgb,${color} 70%,#000),${color},color-mix(in srgb,${color} 70%,#000))`;
+  st.style.left=(rb.left+rb.width/2-3)+"px";
+  st.style.top=(rb.top-40)+"px";
+  document.body.appendChild(st);
+  const amt=Math.min(topRun(tubes[a]),CAP-tubes[b].length);
+  const surface=()=>40+(TUBE_H-gb.children.length*SEG)-4;
+  st.style.height=surface()+"px";
+  await wait(150);
+  for(let k=0;k<amt;k++){
+    if(ga.lastElementChild)ga.lastElementChild.remove();
+    if(ga.lastElementChild)ga.lastElementChild.classList.add("top");
+    [...gb.children].forEach(x=>x.classList.remove("top"));
+    const seg=makeSeg(color,true);
+    seg.style.height="0px";seg.style.transition="height .18s linear";
+    gb.appendChild(seg);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>seg.style.height=SEG+"px"));
+    st.style.height=Math.max(surface(),0)+"px";
+    await wait(200);
+  }
+  st.style.transition="top .15s, height .15s";
+  st.style.top=(rb.top-40+surface())+"px";st.style.height="0px";
+  await wait(150);st.remove();
+  ea.style.transform="";
+  await wait(300);
+  pour(a,b);busy=false;render();
+  if(solved())setTimeout(win,700);
+}
+
+function win(){
+  level=Math.min(level+1,MAX_LV);localStorage.setItem("ws_level",level);
+  document.getElementById("msg").classList.add("show");
+}
+
+function render(){
+  const b=document.getElementById("board");b.innerHTML="";
+  const now=new Set();
+  tubes.forEach((t,i)=>{
+    const d=document.createElement("div");
+    d.className="tube"+(i===sel?" sel":"")+(t.length===CAP&&solvedTube(t)?" done":"");
+    const g=document.createElement("div");g.className="glass";d.appendChild(g);
+    if(t.length===CAP&&solvedTube(t)){
+      const cap=document.createElement("div");
+      cap.className="cap"+(capped.has(i)?"":" drop");
+      d.appendChild(cap);now.add(i);
+    }
+    t.forEach((c,k)=>g.appendChild(makeSeg(COLORS[c],k===t.length-1)));
+    d.onclick=()=>click(i);
+    b.appendChild(d);
+  });
+  capped=now;
+  document.getElementById("lvSel").value=level;
+  document.getElementById("lvDown").disabled=level<=1;
+  document.getElementById("lvUp").disabled=level>=MAX_LV;
+  document.getElementById("mv").textContent=moves;
+  document.getElementById("undo").disabled=!history.length;
+  document.getElementById("addTube").disabled=extraUsed;
+}
+
+document.getElementById("undo").onclick=()=>{if(busy)return;if(history.length){tubes=history.pop();moves--;sel=-1;render();}};
+document.getElementById("restart").onclick=()=>{if(!busy)start(false);};
+document.getElementById("newGame").onclick=()=>{if(!busy)start(true);};
+document.getElementById("addTube").onclick=()=>{if(busy)return;if(!extraUsed){history.push(clone(tubes));tubes.push([]);extraUsed=true;render();}};
+document.getElementById("next").onclick=()=>{document.getElementById("msg").classList.remove("show");start(true);};
+
+// レベル変更
+const lvSel=document.getElementById("lvSel");
+for(let i=1;i<=MAX_LV;i++){const o=document.createElement("option");o.value=i;o.textContent=i+"（"+Math.min(3+Math.floor((i-1)/2),COLORS.length)+"色）";lvSel.appendChild(o);}
+function setLevel(v){
+  if(busy)return;
+  v=Math.max(1,Math.min(MAX_LV,v));
+  if(v===level){render();return;}
+  if(moves>0&&!confirm("レベルを変更すると今の盤面は破棄されます。よろしいですか？")){render();return;}
+  level=v;localStorage.setItem("ws_level",level);start(true);
+}
+lvSel.onchange=()=>setLevel(+lvSel.value);
+document.getElementById("lvDown").onclick=()=>setLevel(level-1);
+document.getElementById("lvUp").onclick=()=>setLevel(level+1);
+
+start(true);
+</script>
+</body>
+</html>
