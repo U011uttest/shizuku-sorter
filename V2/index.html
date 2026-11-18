@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>しずくソーター</title>
+<style>
+/* iOSの「文字サイズ」設定を反映（-apple-system-body）。他環境は16px */
+html{font-size:16px;font:-apple-system-body;font-family:system-ui,sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+body{height:100vh;height:100dvh;display:flex;flex-direction:column;align-items:center;user-select:none;-webkit-user-select:none;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);
+ padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+ background-color:#7a4a26;background-image:
+ radial-gradient(ellipse at 50% 40%,rgba(255,200,140,.25),rgba(0,0,0,.45) 85%),
+ repeating-linear-gradient(92deg,rgba(0,0,0,.08) 0 3px,transparent 3px 11px,rgba(255,255,255,.04) 11px 13px,transparent 13px 27px),
+ repeating-linear-gradient(88deg,rgba(60,25,5,.18) 0 1px,transparent 1px 60px),
+ linear-gradient(90deg,#8a5530,#6e3f1e 30%,#94603a 55%,#6b3c1c 80%,#87522d)}
+header{flex:none;width:100%;display:flex;flex-direction:column;align-items:center;padding:.4em .5em 0;font-size:min(1rem,4.6vw)}
+h1{font-size:1.3em;margin:.1em 0 .2em;white-space:nowrap}
+#info{display:flex;align-items:center;justify-content:center;gap:.4em;flex-wrap:wrap;margin-bottom:.3em}
+#special{display:none;margin-left:.5em;vertical-align:middle;background:#ffcf4a;color:#4a2a00;text-shadow:none;border-radius:1em;padding:.1em .6em;font-weight:bold;font-size:.85em}
+body.sp #special{display:inline-block}
+#bar{display:flex;gap:.4em;flex-wrap:wrap;justify-content:center;margin-bottom:.2em}
+button,select{font:inherit;color:#fff;background:rgba(40,20,8,.55);border:1px solid rgba(255,255,255,.25);border-radius:.5em;padding:.35em .7em;cursor:pointer;min-height:2.2em}
+button:active{transform:scale(.95)}
+button:disabled{opacity:.4}
+.lvbtn{padding:.3em .6em}
+/* 画面が狭い時：タイトルを隠し、ボタンはアイコンのみ */
+body.compact h1{display:none}
+body.compact .lbl{display:none}
+
+#board{flex:1 1 auto;width:100%;position:relative;min-height:0}
+.tube{position:absolute;cursor:pointer;transition:transform .15s}
+.glass{position:absolute;top:calc(var(--w)*.125);left:0;right:0;bottom:0;border:2px solid rgba(255,255,255,.55);border-top:none;
+ border-radius:0 0 calc(var(--w)*.5) calc(var(--w)*.5);display:flex;flex-direction:column-reverse;overflow:hidden;padding:0 1px 1px;
+ background:linear-gradient(90deg,rgba(255,255,255,.18),rgba(255,255,255,.04) 30%,rgba(255,255,255,.02) 70%,rgba(255,255,255,.15));
+ box-shadow:inset 0 0 6px rgba(255,255,255,.25),0 6px 10px rgba(0,0,0,.35);
+ -webkit-mask:radial-gradient(ellipse calc(var(--w)*.48) calc(var(--w)*.105) at 50% 0,transparent 98%,#000 100%);
+ mask:radial-gradient(ellipse calc(var(--w)*.48) calc(var(--w)*.105) at 50% 0,transparent 98%,#000 100%)}
+.tube::before{content:"";position:absolute;top:0;left:0;right:0;height:calc(var(--w)*.25);border:2px solid rgba(255,255,255,.75);border-radius:50%;z-index:4;pointer-events:none}
+.tube::after{content:"";position:absolute;top:calc(var(--w)*.35);bottom:calc(var(--w)*.35);left:calc(var(--w)*.15);width:calc(var(--w)*.1);border-radius:9px;background:linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.12));z-index:4;pointer-events:none}
+.tube.sel{transform:translateY(calc(var(--w)*-.38))}
+.tube.sel::before{border-color:#ffe27a}
+.tube.done::before{border-color:transparent}
+.tube.done{cursor:default}
+.tube.pouring{z-index:15}
+.seg{position:relative;height:var(--seg);flex:none;
+ background:linear-gradient(90deg,color-mix(in srgb,var(--c) 70%,#000),var(--c) 25%,color-mix(in srgb,var(--c) 75%,#fff) 45%,var(--c) 65%,color-mix(in srgb,var(--c) 65%,#000))}
+.seg:first-child{border-radius:0 0 calc(var(--w)*.46) calc(var(--w)*.46)}
+.seg:not(:first-child)::before{content:"";position:absolute;left:0;right:0;bottom:calc(var(--w)*-.125);height:calc(var(--w)*.25);border-radius:50%;background:inherit;z-index:1}
+.seg.top::after{content:"";position:absolute;left:0;right:0;top:calc(var(--w)*-.125);height:calc(var(--w)*.25);border-radius:50%;background:color-mix(in srgb,var(--c) 65%,#fff);z-index:2}
+/* 蓋 */
+.cap{position:absolute;left:calc(var(--w)*-.08);right:calc(var(--w)*-.08);top:calc(var(--w)*-.3);height:calc(var(--w)*.62);z-index:6;pointer-events:none;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45))}
+.cap::after{content:"";position:absolute;left:0;right:0;top:calc(var(--w)*.145);bottom:0;border-radius:0 0 50% 50% / 0 0 calc(var(--w)*.145) calc(var(--w)*.145);
+ background:linear-gradient(90deg,#5e3818,#a86d35 22%,#e3ab72 42%,#c1803f 62%,#7a4a22 85%,#4f2e13)}
+.cap::before{content:"";position:absolute;left:0;right:0;top:0;height:calc(var(--w)*.29);border-radius:50%;z-index:1;
+ background:radial-gradient(ellipse at 40% 35%,#f0c08c,#c9894a 60%,#9c6230);box-shadow:inset 0 -1px 1px rgba(0,0,0,.3),inset 0 1px 1px rgba(255,255,255,.4)}
+.cap.drop{animation:capDrop .45s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes capDrop{0%{transform:translateY(calc(var(--w)*-1.3));opacity:0}60%{opacity:1}100%{transform:translateY(0)}}
+#stream{position:fixed;border-radius:3px;z-index:20;height:0;transition:height .15s linear;pointer-events:none}
+#msg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;flex-direction:column;gap:1em;font-size:1.5rem;z-index:30}
+#msg.show{display:flex}
+</style>
+</head>
+<body>
+<header>
+  <h1>💧 しずくソーター<span id="special">★特別ステージ</span></h1>
+  <div id="info">
+    <button id="lvDown" class="lvbtn" aria-label="前のレベル">◀</button>
+    <span>レベル</span> <select id="lvSel" aria-label="レベル選択"></select>
+    <button id="lvUp" class="lvbtn" aria-label="次のレベル">▶</button>
+    <span>手数 <span id="mv">0</span></span>
+  </div>
+  <div id="bar">
+    <button id="undo">↩<span class="lbl"> 戻す</span></button>
+    <button id="restart">⟲<span class="lbl"> やり直し</span></button>
+    <button id="addTube">＋<span class="lbl"> 空き瓶</span></button>
+    <button id="newGame">🎲<span class="lbl"> 新規</span></button>
+  </div>
+</header>
+<div id="board"></div>
+<div id="msg"><div>🎉 クリア！</div><button id="next">次のレベルへ</button></div>
+
+<script>
+const MAX_LV=30, CAP=4, BIG_CAP=12;
+const COLORS=["#f2353b","#2f6df6","#3fd13f","#ffd633","#a03ef0","#ff8c1a","#00c2d1","#ff5fa8","#8b5a3c","#a8a8a8","#b7d61e","#1a2fa0"];
+// 寸法（試験管の幅wに対する比率）
+const R={seg:.8, h:4.1, lift:.55, gx:.45, bigW:1.3, bigGap:.6, head:.75};
+const MIN_W=36, MAX_W=72;
+
+let level=Math.min(+localStorage.getItem("ws_level")||1,MAX_LV);
+let busy=false, capped=new Set();
+let tubes=[],caps=[],initial=null,history=[],sel=-1,moves=0,extraUsed=false,total={};
+
+const isSpecial=lv=>lv%10===0;
+const numColors=lv=>Math.min(3+Math.floor((lv-1)/2),COLORS.length);
+const specialColors=lv=>3+lv/10;          // 10:4色 20:5色 30:6色
+const SPECIAL_K=2;                         // 1色あたり小瓶2本分（8個）
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function generate(lv){
+  if(isSpecial(lv)){
+    const n=specialColors(lv),pool=[];
+    for(let c=0;c<n;c++)for(let i=0;i<CAP*SPECIAL_K;i++)pool.push(c);
+    let t;
+    do{shuffle(pool);t=[];for(let i=0;i<n*SPECIAL_K;i++)t.push(pool.slice(i*CAP,(i+1)*CAP));}
+    while(t.some(x=>x.every(v=>v===x[0])));
+    t.push([]);                               // 小さい空き瓶1本
+    return {tubes:[[],...t],caps:[BIG_CAP,...t.map(()=>CAP)]}; // 0番が大きい試験管
+  }
+  const n=numColors(lv),pool=[];
+  for(let c=0;c<n;c++)for(let i=0;i<CAP;i++)pool.push(c);
+  let t;
+  do{shuffle(pool);t=[];for(let i=0;i<n;i++)t.push(pool.slice(i*CAP,(i+1)*CAP));}
+  while(t.some(x=>x.every(v=>v===x[0])));
+  t.push([],[]);
+  return {tubes:t,caps:t.map(()=>CAP)};
+}
+
+// ---- 判定 ----
+function countColors(ts){const o={};ts.forEach(t=>t.forEach(c=>o[c]=(o[c]||0)+1));return o;}
+function topRun(t){if(!t.length)return 0;const c=t[t.length-1];let k=0;for(let i=t.length-1;i>=0&&t[i]===c;i--)k++;return k;}
+const mono=t=>t.length>0&&t.every(v=>v===t[0]);
+// 完成（蓋をする）：小瓶は満杯で1色、大瓶はその色を全部集めた1色
+function complete(t,cap,tot){
+  if(!mono(t))return false;
+  return cap===CAP?t.length===CAP:t.length===tot[t[0]];
+}
+function solvedState(ts,cs){
+  return ts.every((t,i)=>!t.length||(mono(t)&&(cs[i]===CAP?t.length===CAP:true)));
+}
+
+// 解けるか判定（深さ優先探索）
+function isSolvable(start,cs,limit=150000){
+  const seen=new Set();let nodes=0;
+  const key=ts=>{const s=[],b=[];ts.forEach((t,i)=>(cs[i]===CAP?s:b).push(t.join(",")));return s.sort().join("|")+"#"+b.join("|");};
+  function dfs(ts){
+    if(solvedState(ts,cs))return true;
+    if(++nodes>limit)return null;
+    const k=key(ts);if(seen.has(k))return false;seen.add(k);
+    for(let a=0;a<ts.length;a++){
+      const A=ts[a];if(!A.length)continue;
+      const r=topRun(A);
+      if(r===A.length&&A.length===cs[a])continue;      // 満杯の1色は動かさない
+      const triedEmpty={};
+      for(let b=0;b<ts.length;b++){
+        if(a===b)continue;const B=ts[b];
+        if(B.length>=cs[b])continue;
+        if(B.length){if(B[B.length-1]!==A[A.length-1])continue;}
+        else{
+          if(triedEmpty[cs[b]])continue;triedEmpty[cs[b]]=1;
+          if(r===A.length&&cs[a]===cs[b])continue;       // 同じ大きさの空き瓶への丸ごと移動は無意味
+        }
+        const n=ts.map(x=>x.slice());
+        const amt=Math.min(r,cs[b]-B.length);
+        for(let i=0;i<amt;i++)n[b].push(n[a].pop());
+        const res=dfs(n);
+        if(res)return true;if(res===null)return null;
+      }
+    }
+    return false;
+  }
+  return dfs(start)===true;
+}
+function generateSolvable(lv){
+  for(let i=0;i<40;i++){const g=generate(lv);if(isSolvable(g.tubes,g.caps))return g;}
+  return generate(lv);
+}
+
+// ---- 進行 ----
+const clone=a=>a.map(x=>x.slice());
+function start(fresh){
+  if(fresh||!initial)initial=generateSolvable(level);
+  tubes=clone(initial.tubes);caps=initial.caps.slice();
+  total=countColors(tubes);history=[];sel=-1;moves=0;extraUsed=false;capped=new Set();
+  document.body.classList.toggle("sp",isSpecial(level));
+  layout();
+}
+function canPour(a,b){
+  const A=tubes[a],B=tubes[b];
+  if(a===b||!A.length||B.length>=caps[b])return false;
+  return !B.length||B[B.length-1]===A[A.length-1];
+}
+function snapshot(){history.push({t:clone(tubes),n:caps.length});}
+function pour(a,b){
+  snapshot();
+  const A=tubes[a],B=tubes[b];
+  const amt=Math.min(topRun(A),caps[b]-B.length);
+  for(let i=0;i<amt;i++)B.push(A.pop());
+  moves++;
+}
+const isDone=i=>complete(tubes[i],caps[i],total);
+
+function click(i){
+  if(busy)return;
+  if(sel<0){if(tubes[i].length&&!isDone(i))sel=i;}
+  else if(sel===i)sel=-1;
+  else if(canPour(sel,i)){const a=sel;sel=-1;animatePour(a,i);return;}
+  else sel=(tubes[i].length&&!isDone(i))?i:-1;
+  render();
+}
+
+// ---- レイアウト（画面サイズに合わせて試験管の大きさと並びを計算） ----
+let geo=null;
+function calcGeo(W,H){
+  const n=tubes.length, rowU=R.h+R.lift;
+  let best=null;
+  if(caps[0]>CAP){                        // 特別ステージ：中央に大瓶、左右に小瓶
+    const S=n-1;
+    for(let r=1;r<=S;r++){
+      const cs=Math.ceil(S/(2*r));
+      const wu=2*cs+R.bigW+2*(cs-1)*R.gx+2*R.bigGap;
+      const w=Math.min(W/wu,H/(r*rowU),MAX_W);
+      if(!best||w>best.w+.01)best={w,r,cs};
+    }
+  }else{
+    for(let c=1;c<=n;c++){
+      const r=Math.ceil(n/c);
+      const w=Math.min(W/(c+(c-1)*R.gx),H/(r*rowU),MAX_W);
+      if(!best||w>best.w+.01)best={w,r,c};
+    }
+  }
+  return best;
+}
+function layout(){
+  const board=document.getElementById("board");
+  document.body.classList.remove("compact");
+  let W=board.clientWidth-12,H=board.clientHeight-8;
+  let g=calcGeo(W,H);
+  if(g.w<MIN_W){                          // 小さすぎる時は見出しを隠して盤面を広げる
+    document.body.classList.add("compact");
+    W=board.clientWidth-12;H=board.clientHeight-8;
+    g=calcGeo(W,H);
+  }
+  const w=Math.floor(g.w),pos=[],rowH=w*(R.h+R.lift),th=w*R.h;
+  const totalH=g.r*rowH, y0=(board.clientHeight-totalH)/2;
+  if(caps[0]>CAP){
+    const cs=g.cs,S=tubes.length-1,bw=Math.floor(w*R.bigW);
+    const sideW=cs*w+(cs-1)*R.gx*w;
+    const totalW=2*sideW+bw+2*R.bigGap*w, x0=(board.clientWidth-totalW)/2;
+    const bigH=totalH-w*R.lift;
+    const bigSeg=(bigH-w*.125-w*R.head)/BIG_CAP;
+    pos[0]={x:x0+sideW+R.bigGap*w,y:y0+w*R.lift,w:bw,h:bigH,seg:bigSeg};
+    for(let k=0;k<S;k++){
+      const row=Math.floor(k/(2*cs)),col=k%(2*cs);
+      const right=col>=cs, c=right?col-cs:col;
+      const x=x0+(right?sideW+bw+2*R.bigGap*w:0)+c*(w+R.gx*w);
+      pos[k+1]={x,y:y0+row*rowH+w*R.lift,w,h:th,seg:w*R.seg};
+    }
+  }else{
+    const n=tubes.length,r=g.r,base=Math.floor(n/r),extra=n%r;
+    let k=0;
+    for(let row=0;row<r;row++){
+      const cnt=base+(row<extra?1:0);
+      const rw=cnt*w+(cnt-1)*R.gx*w, x0=(board.clientWidth-rw)/2;
+      for(let c=0;c<cnt;c++,k++)pos[k]={x:x0+c*(w+R.gx*w),y:y0+row*rowH+w*R.lift,w,h:th,seg:w*R.seg};
+    }
+  }
+  geo={pos};
+  render();
+}
+
+function makeSeg(color,top){
+  const s=document.createElement("div");
+  s.className="seg"+(top?" top":"");
+  s.style.setProperty("--c",color);
+  return s;
+}
+function render(){
+  const b=document.getElementById("board");b.innerHTML="";
+  const now=new Set();
+  tubes.forEach((t,i)=>{
+    const p=geo.pos[i];
+    const d=document.createElement("div");
+    const done=isDone(i);
+    d.className="tube"+(i===sel?" sel":"")+(done?" done":"");
+    Object.assign(d.style,{left:p.x+"px",top:p.y+"px",width:p.w+"px",height:p.h+"px"});
+    d.style.setProperty("--w",p.w+"px");d.style.setProperty("--seg",p.seg+"px");
+    const g=document.createElement("div");g.className="glass";d.appendChild(g);
+    t.forEach((c,k)=>g.appendChild(makeSeg(COLORS[c],k===t.length-1)));
+    if(done){
+      const cap=document.createElement("div");
+      cap.className="cap"+(capped.has(i)?"":" drop");
+      d.appendChild(cap);now.add(i);
+    }
+    d.onclick=()=>click(i);
+    b.appendChild(d);
+  });
+  capped=now;
+  document.getElementById("mv").textContent=moves;
+  document.getElementById("lvSel").value=level;
+  document.getElementById("lvDown").disabled=level<=1;
+  document.getElementById("lvUp").disabled=level>=MAX_LV;
+  document.getElementById("undo").disabled=!history.length;
+  document.getElementById("addTube").disabled=extraUsed;
+}
+
+// ---- 注ぐアニメーション ----
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function animatePour(a,b){
+  busy=true;render();
+  const els=document.querySelectorAll(".tube");
+  const ea=els[a],eb=els[b];
+  const ga=ea.querySelector(".glass"),gb=eb.querySelector(".glass");
+  const pa=geo.pos[a],pb=geo.pos[b];
+  const ra=ea.getBoundingClientRect(),rb=eb.getBoundingClientRect();
+  const moveSrc=caps[a]===CAP;            // 大瓶は動かさずに注ぐ
+  if(moveSrc){
+    const dir=rb.left>=ra.left?1:-1;
+    const dx=(rb.left+rb.width/2-ra.left-ra.width/2)-dir*pa.w*1.2;
+    let dy=(rb.top-ra.top)-pa.h*.55;
+    dy=Math.max(dy,-ra.top+4);           // 画面上端からはみ出さない
+    ea.classList.add("pouring");
+    ea.style.transition="transform .3s ease";
+    ea.style.transform=`translate(${dx}px,${dy}px) rotate(${dir*75}deg)`;
+    await wait(320);
+  }
+  const color=COLORS[tubes[a][tubes[a].length-1]];
+  const sw=Math.max(4,pb.w*.13);
+  const st=document.createElement("div");st.id="stream";
+  st.style.width=sw+"px";
+  st.style.background=`linear-gradient(90deg,color-mix(in srgb,${color} 70%,#000),${color},color-mix(in srgb,${color} 70%,#000))`;
+  const top0=rb.top-pb.w*.8;
+  st.style.left=(rb.left+rb.width/2-sw/2)+"px";
+  st.style.top=top0+"px";
+  document.body.appendChild(st);
+  const amt=Math.min(topRun(tubes[a]),caps[b]-tubes[b].length);
+  const surface=()=>rb.bottom-gb.children.length*pb.seg-top0-pb.w*.1;
+  st.style.height=surface()+"px";
+  await wait(150);
+  for(let k=0;k<amt;k++){
+    if(ga.lastElementChild)ga.lastElementChild.remove();
+    if(ga.lastElementChild)ga.lastElementChild.classList.add("top");
+    [...gb.children].forEach(x=>x.classList.remove("top"));
+    const seg=makeSeg(color,true);
+    seg.style.height="0px";seg.style.transition="height .16s linear";
+    gb.appendChild(seg);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>seg.style.height=pb.seg+"px"));
+    st.style.height=Math.max(surface(),0)+"px";
+    await wait(amt>6?120:200);
+  }
+  st.style.transition="top .15s, height .15s";
+  st.style.top=(top0+surface())+"px";st.style.height="0px";
+  await wait(150);st.remove();
+  if(moveSrc){ea.style.transform="";await wait(300);}
+  pour(a,b);busy=false;render();
+  if(solvedState(tubes,caps))setTimeout(win,700);
+}
+
+function win(){
+  level=Math.min(level+1,MAX_LV);localStorage.setItem("ws_level",level);
+  document.getElementById("msg").classList.add("show");
+}
+
+// ---- ボタン ----
+document.getElementById("undo").onclick=()=>{
+  if(busy||!history.length)return;
+  const h=history.pop();tubes=h.t;
+  if(caps.length>h.n){caps=caps.slice(0,h.n);extraUsed=false;layout();}
+  else{moves--;}
+  sel=-1;render();
+};
+document.getElementById("restart").onclick=()=>{if(!busy)start(false);};
+document.getElementById("newGame").onclick=()=>{if(!busy)start(true);};
+document.getElementById("addTube").onclick=()=>{
+  if(busy||extraUsed)return;
+  snapshot();tubes.push([]);caps.push(CAP);extraUsed=true;sel=-1;layout();
+};
+document.getElementById("next").onclick=()=>{document.getElementById("msg").classList.remove("show");start(true);};
+
+// レベル変更
+const lvSel=document.getElementById("lvSel");
+for(let i=1;i<=MAX_LV;i++){
+  const o=document.createElement("option");o.value=i;
+  o.textContent=i+(isSpecial(i)?"（★特別）":"（"+numColors(i)+"色）");
+  lvSel.appendChild(o);
+}
+function setLevel(v){
+  if(busy)return;
+  v=Math.max(1,Math.min(MAX_LV,v));
+  if(v===level){render();return;}
+  if(moves>0&&!confirm("レベルを変更すると今の盤面は破棄されます。よろしいですか？")){render();return;}
+  level=v;localStorage.setItem("ws_level",level);start(true);
+}
+lvSel.onchange=()=>setLevel(+lvSel.value);
+document.getElementById("lvDown").onclick=()=>setLevel(level-1);
+document.getElementById("lvUp").onclick=()=>setLevel(level+1);
+
+// 画面サイズ・向き・文字サイズの変化に追従
+let rt=0;
+const relayout=()=>{if(busy)return;clearTimeout(rt);rt=setTimeout(()=>{if(tubes.length)layout();},80);};
+window.addEventListener("resize",relayout);
+window.addEventListener("orientationchange",relayout);
+if(window.visualViewport)visualViewport.addEventListener("resize",relayout);
+
+start(true);
+</script>
+</body>
+</html>
